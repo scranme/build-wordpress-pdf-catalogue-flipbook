@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 2,
+  "name": "wpcf/product-flipbook",
+  "version": "__VERSION__",
+  "title": "Product Flipbook",
+  "category": "media",
+  "icon": "book-alt",
+  "description": "Show a product catalogue cover with a responsive page-turning reader.",
+  "textdomain": "wordpress-product-flipbook",
+  "attributes": {
+    "catalogue": { "type": "string", "default": "default" },
+    "mode": { "type": "string", "default": "overlay", "enum": ["overlay", "inline"] }
+  },
+  "supports": { "html": false, "multiple": true },
+  "editorScript": "wpcf-block-editor"
+}

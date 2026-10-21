@@ -1,0 +1,75 @@
+{
+  "description": "An original twelve-page sample catalogue. Artwork is geometric and contains no real company or product data.",
+  "pages": {
+    "1": {
+      "title": "Field Notes",
+      "alt": "Original demonstration catalogue: Field Notes",
+      "searchText": "Field Notes"
+    },
+    "2": {
+      "title": "A quieter everyday",
+      "alt": "Original demonstration catalogue: A quieter everyday",
+      "searchText": "A quieter everyday"
+    },
+    "3": {
+      "title": "Carry / Tote",
+      "alt": "Original demonstration catalogue: Carry / Tote",
+      "searchText": "Carry / Tote FN-001 Everyday tote"
+    },
+    "4": {
+      "title": "Carry / Details",
+      "alt": "Original demonstration catalogue: Carry / Details",
+      "searchText": "Carry / Details"
+    },
+    "5": {
+      "title": "Desk / Journal",
+      "alt": "Original demonstration catalogue: Desk / Journal",
+      "searchText": "Desk / Journal FN-002 Pocket journal"
+    },
+    "6": {
+      "title": "Desk / Details",
+      "alt": "Original demonstration catalogue: Desk / Details",
+      "searchText": "Desk / Details"
+    },
+    "7": {
+      "title": "Journey / Bottle",
+      "alt": "Original demonstration catalogue: Journey / Bottle",
+      "searchText": "Journey / Bottle FN-003 Daily bottle"
+    },
+    "8": {
+      "title": "Journey / Details",
+      "alt": "Original demonstration catalogue: Journey / Details",
+      "searchText": "Journey / Details"
+    },
+    "9": {
+      "title": "Studio / Light",
+      "alt": "Original demonstration catalogue: Studio / Light",
+      "searchText": "Studio / Light FN-004 Studio light"
+    },
+    "10": {
+      "title": "Studio / Details",
+      "alt": "Original demonstration catalogue: Studio / Details",
+      "searchText": "Studio / Details"
+    },
+    "11": {
+      "title": "Collection index",
+      "alt": "Original demonstration catalogue: Collection index",
+      "searchText": "Collection index",
+      "links": [
+        {
+          "x": 7,
+          "y": 84,
+          "width": 68,
+          "height": 6,
+          "url": "https://example.com/",
+          "label": "Open demonstration link (example.com)"
+        }
+      ]
+    },
+    "12": {
+      "title": "Made for the everyday",
+      "alt": "Original demonstration catalogue: Made for the everyday",
+      "searchText": "Made for the everyday"
+    }
+  }
+}

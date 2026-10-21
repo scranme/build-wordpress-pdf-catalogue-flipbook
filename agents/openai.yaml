@@ -1,0 +1,4 @@
+interface:
+  display_name: "WordPress PDF Catalogue Flipbook Builder"
+  short_description: "Build installable WordPress flipbook plugins from catalogue PDFs"
+  default_prompt: "Use $build-wordpress-pdf-catalogue-flipbook to turn my product catalogue PDF or ordered page images into an installable WordPress flipbook plugin ZIP with a cover, Gutenberg block, and shortcode."

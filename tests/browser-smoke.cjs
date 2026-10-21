@@ -1,0 +1,124 @@
+/* Run against a disposable WordPress site populated with the documented test pages. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { chromium } = require(process.env.WPCF_PLAYWRIGHT || 'playwright');
+const base = process.env.WPCF_TEST_URL || 'http://127.0.0.1:8937';
+const out = path.resolve(process.env.WPCF_SCREENSHOTS || 'dist/browser-qa');
+fs.mkdirSync(out, { recursive: true });
+const errors = [];
+const checks = [];
+const check = (name, condition = true) => { assert.ok(condition, name); checks.push(name); console.log('PASS:', name); };
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+async function open(page, index = 0) {
+  await page.locator('[data-wpcf-open]').nth(index).click();
+  const panel = page.locator('.wpcf-reader:visible');
+  await panel.locator('.wpcf-book .wpcf-page').first().waitFor({ state: 'attached' });
+  await page.waitForFunction(() => {
+    const reader = [...document.querySelectorAll('.wpcf-reader')].find(p => p.getBoundingClientRect().height);
+    const image = reader && reader.querySelector('.wpcf-page-image[src]');
+    return image && image.complete && image.naturalWidth > 0;
+  });
+  await wait(250);
+  return panel;
+}
+async function run() {
+  const browser = await chromium.launch({ headless: true, ...(process.env.WPCF_BROWSER ? { executablePath: process.env.WPCF_BROWSER } : {}) });
+  try {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const page = await context.newPage();
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(base + '/catalogue-demo/');
+    check('Cover renders before reader', await page.locator('[data-wpcf-open]').count() === 1 && await page.locator('.wpcf-reader').count() === 0);
+    await page.screenshot({ path: path.join(out, 'desktop-cover.png'), fullPage: true });
+    let panel = await open(page);
+    check('Manifest and page media carry the plugin version', await page.locator('[data-wpcf]').evaluate(root => new URL(root.dataset.manifest).searchParams.has('ver')) && await panel.locator('.wpcf-page-image[src]').first().evaluate(img => new URL(img.src).searchParams.has('ver')));
+    check('Desktop spread mode', await panel.getAttribute('data-orientation') === 'landscape');
+    const imageCounts = await panel.evaluate(p => ({ total: p.querySelectorAll('.wpcf-page-image').length, loaded: p.querySelectorAll('.wpcf-page-image[src]').length }));
+    check('Only neighboring page images populated', imageCounts.loaded < imageCounts.total);
+    await panel.getByRole('button', { name: 'Next →', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.wpcf-reader[open]').dataset.page === '2');
+    await wait(700);
+    await page.screenshot({ path: path.join(out, 'desktop-spread.png') });
+    check('Animated next turn reaches interior spread');
+    const jump = panel.getByRole('spinbutton', { name: 'Page number' });
+    await jump.fill('3'); await jump.press('Enter');
+    check('Right-side page selection preserved', await panel.getAttribute('data-page') === '3');
+    await panel.getByRole('button', { name: 'Zoom', exact: true }).click();
+    const zoom = panel.locator('.wpcf-zoom-scroll img');
+    check('Right-side page zooms the selected page', /page-003/.test(await zoom.getAttribute('src')));
+    await panel.getByRole('button', { name: 'Page →', exact: true }).click();
+    check('Zoom can step through individual pages', /page-004/.test(await zoom.getAttribute('src')));
+    await page.screenshot({ path: path.join(out, 'desktop-zoom.png') });
+    await panel.getByRole('button', { name: 'Return to book', exact: true }).click();
+    await panel.getByRole('button', { name: 'Pages', exact: true }).click();
+    await panel.locator('.wpcf-thumbs button').nth(6).click();
+    await wait(300);
+    check('Thumbnail selects requested page', await panel.getAttribute('data-page') === '7');
+    await panel.getByRole('searchbox').fill('Journal');
+    await panel.getByRole('button', { name: 'Search', exact: true }).click();
+    check('Metadata search returns results', await panel.locator('.wpcf-results button').count() > 0);
+    await panel.locator('.wpcf-results button').first().click();
+    await wait(300);
+    await panel.getByRole('button', { name: 'Back to cover' }).click();
+    check('Close restores focus to cover', await page.locator('[data-wpcf-open]').evaluate(n => n === document.activeElement));
+    for (let i = 0; i < 3; i++) {
+      panel = await open(page);
+      await panel.getByRole('button', { name: 'Back to cover' }).click();
+    }
+    check('Repeated open/close remains functional');
+    await page.goto(base + '/catalogue-multiple/');
+    check('Two cover instances render', await page.locator('[data-wpcf-open]').count() === 2);
+    panel = await open(page, 1);
+    await panel.getByRole('button', { name: 'Back to cover' }).click();
+    check('Second instance opens independently');
+    await page.goto(base + '/catalogue-block/');
+    panel = await open(page);
+    check('Saved Gutenberg block is interactive');
+    await panel.getByRole('button', { name: 'Back to cover' }).click();
+    await page.goto(base + '/catalogue-inline/');
+    panel = await open(page);
+    check('Inline reader is not a dialog', await panel.evaluate(p => p.tagName === 'SECTION'));
+    await panel.getByRole('button', { name: 'Back to cover' }).click();
+    check('Inline close restores cover', await page.locator('[data-wpcf-open]').isVisible());
+    await page.goto(base + '/ordinary-page/');
+    check('Unrelated page has no reader assets', await page.locator('script[src*="wp-product-flipbook"],link[href*="wp-product-flipbook"]').count() === 0);
+    await page.goto(base + '/catalogue-demo/');
+    await page.route(/\/manifest\.json(?:\?|$)/, route => route.fulfill({ status: 503, body: 'Unavailable' }));
+    await page.locator('[data-wpcf-open]').click();
+    await page.getByRole('button', { name: 'Retry', exact: true }).waitFor();
+    check('Manifest failure offers a retry');
+    await page.unroute(/\/manifest\.json(?:\?|$)/);
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await page.locator('.wpcf-book .wpcf-page').first().waitFor();
+    check('Retry recovers without page refresh');
+    await page.getByRole('button', { name: 'Back to cover' }).click();
+    await context.close();
+    const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+    const phone = await mobile.newPage();
+    phone.on('pageerror', error => errors.push(error.message));
+    await phone.goto(base + '/catalogue-demo/');
+    panel = await open(phone);
+    check('Mobile single-page mode', await panel.getAttribute('data-orientation') === 'portrait');
+    const geometry = await panel.evaluate(p => {
+      const book = p.querySelector('.wpcf-book-host').getBoundingClientRect();
+      const stage = p.querySelector('.wpcf-stage').getBoundingClientRect();
+      const image = p.querySelector('.wpcf-page-image[src]');
+      return { book: { width: book.width, height: book.height }, stage: { width: stage.width, height: stage.height }, ratio: image.width / image.height, overflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    check('Mobile book fits viewport without distortion', geometry.book.width <= geometry.stage.width + 1 && geometry.book.height <= geometry.stage.height + 1 && Math.abs(geometry.book.width / geometry.book.height - geometry.ratio) < .01 && !geometry.overflow);
+    await panel.getByRole('button', { name: 'Next →', exact: true }).tap();
+    await phone.waitForFunction(() => document.querySelector('.wpcf-reader[open]').dataset.page === '2');
+    await wait(700);
+    await phone.screenshot({ path: path.join(out, 'mobile-page.png') });
+    check('Mobile next button turns page');
+    await phone.setViewportSize({ width: 844, height: 390 });
+    await wait(500);
+    check('Landscape phone retains a visible book', await panel.locator('.wpcf-book').isVisible());
+    await phone.screenshot({ path: path.join(out, 'mobile-landscape.png') });
+    await mobile.close();
+    check('No uncaught browser errors', errors.length === 0);
+    fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ checks, errors }, null, 2));
+  } finally { await browser.close(); }
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });
